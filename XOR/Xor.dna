@@ -1,0 +1,140 @@
+(* Qian and Winfree 4 bit square root circuit *)
+(* Simulate in Finite mode with Stochastic simulator withouts leaks and unproductive reactions *)
+
+(* Simulate for 10 hours and collect 10000 data points*)
+directive duration 6000.0 points 10000
+
+(* Simulate a population of 1000 molecules *)
+directive scale 20.0
+
+(* Plot the outputs *)
+directive plot < _ _ _ Output> 
+directive plot <_ _ _ T1> 
+directive plot <_ _ _ T2> 
+directive plot < _ _ _ OutputBar> 
+(* Rates at 25 C from the Qian and Winfree 2011 (page 48 SI) *)
+(* Long toeholds bind fast and unbind slowly while short toeholds bind slow and unbind faster*)
+directive toeholds 2.0E-3 1.3 (* Long toehold binding rate 2x10^-3 /nM/s, unbinding rates 1.3/s*)
+directive leak 1.0E-8 (* Leak rate 10^-8 /nM/s *)
+directive tau 1.0 (* Branch migration rate 1/s (from Zhang and Winfree 2009)*)
+def shorttoeholdunbind = 26.0 (* Short toehold dissociation rate constant 26/s *)
+def shorttoeholdbind = 5.0E-5 (* Short toehold binding rate constant 5x10^-5/nM/s *)
+
+(* Set concentration with 1x = 50 nM *)
+def N = 5 (* 0.1x standard concentration *)
+def OFF = 1*N (* logic OFF value = 0.1, conc = 5 nM *)
+def ON = 9*N (* logic ON value = 0.9, conc = 45 nM*)
+
+(* a seesaw signal *)
+def signal(N,(iL,i,iR),(jL,j,jR)) = ( N * <iL^ i iR^ t^ jL^ j jR^> )
+
+(* a seesaw gate with signal bound by the left side *)
+def gateL(N,(iL,i,iR),(jL,j,jR)) = ( N * {t^*}:[iL^ i iR^ t^]<jL^ j jR^> )
+
+(* a seesaw gate with signal bound by the right side *)
+def gateR(N,(iL,i,iR),(jL,j,jR)) = ( N * <iL^ i iR^>[t^ jL^ j jR^]:{t^*} )
+
+(* a seesaw threshold with signal coming in from the left side *)
+def thresholdL(N,(iL,i,iR),(jL,j,jR)) = ( N * {iR^* t^*}[jL^ j jR^] )
+
+(* a seesaw threshold with signal coming in from the right side *)
+def thresholdR(N,(iL,i,iR),(jL,j,jR)) = ( N * [iL^ i iR^]{t^* jL^*} )
+
+(* a seesaw reporter *)
+def reporter(N,(iL,i,iR),Fluor) = ( N * {t^*}:[iL^ i iR^]<Fluor> )
+
+def F = (fL,f,fR)
+
+
+(* 2-input 2-output seesaw OR gate *)
+def seesawOR2I2O(I1,I2,K1,K2) =
+( gateL(20*N,I1,I2)
+| thresholdL(6*N,I1,I2)
+| gateL(10*N,I2,K1)
+| gateL(10*N,I2,K2)
+| signal(40*N,I2,F))
+
+(* 2-input 2-output seesaw AND gate *)
+def seesawAND2I2O(I1,I2,K1,K2) =
+( gateL(20*N,I1,I2)
+| thresholdL(12*N,I1,I2)
+| gateL(10*N,I2,K1)
+| gateL(10*N,I2,K2)
+| signal(40*N,I2,F))
+
+(* 2-input 1-output seesaw OR gate *)
+def seesawOR2I1O(I1,I2,K1) =
+( gateL(20*N,I1,I2)
+| thresholdL(6*N,I1,I2)
+| gateL(10*N,I2,K1)
+| signal(20*N,I2,F))
+
+(* 2-input 1-output seesaw AND gate *)
+def seesawAND2I1O(I1,I2,K1) =
+( gateL(20*N,I1,I2)
+| thresholdL(12*N,I1,I2)
+| gateL(10*N,I2,K1)
+| signal(20*N,I2,F))
+
+(* 3-input 1-output seesaw AND gate *)
+def seesawAND3I1O(I1,I2,K1) =
+( gateL(30*N,I1,I2)
+| thresholdL(22*N,I1,I2)
+| gateL(10*N,I2,K1)
+| signal(20*N,I2,F))
+
+(* 3-input 1-output seesaw OR gate *)
+def seesawOR3I1O(I1,I2,K1) =
+( gateL(30*N,I1,I2)
+| thresholdL(6*N,I1,I2)
+| gateL(10*N,I2,K1)
+| signal(20*N,I2,F))
+
+(* input fanout gate with 3 outputs *)
+def inputfanout3O(J,I,K1,K2,K3) =
+( thresholdL(2*N,J,I)
+| gateL(10*N,I,K1)
+| gateL(10*N,I,K2)
+| gateL(10*N,I,K3)
+| signal(60*N,I,F))
+
+(* reporter with signal restoration *)
+def reporterREST(I1,I2,I3) =
+( gateL(10*N,I1,I2)
+| thresholdL(4*N,I1,I2)
+| gateL(10*N,I2,I3)
+| signal(20*N,I2,F))
+
+
+def SignalA = (S1L,S1,S1R)
+def SignalABar = (S2L,S2,S2R)
+def SignalB = (S3L,S3,S3R)
+def SignalBBar = (S4L,S4,S4R)
+
+def SignalOutput = (S9L,S9,S9R)
+def SignalOutputBar = (S10L,S10,S10R)
+def X1 = (S11L,S11,S11R)
+def X2 = (S12L,S12,S12R)
+def X3 = (S13L,S13,S13R)
+def X4 = (S14L,S14,S14R)
+def temp1 = (S17L,S17,S17R)
+def temp2 = (S18L,S18,S18R)
+
+(* Input section *)
+(* A=1, B=0 *)
+(signal(ON, X1, SignalA)
+| signal(OFF, X3, SignalABar)
+| signal(OFF, X2, SignalB)
+| signal(ON, X4, SignalBBar)
+
+(* Gates section *)
+| seesawAND2I1O(SignalA, SignalBBar, temp1)
+| seesawAND2I1O(SignalABar, SignalB, temp2)
+| seesawOR2I1O(temp1, temp2, SignalOutput)
+
+(* Reporters section *)
+| reporter(15*N,temp1,T1)
+| reporter(15*N,temp2,T2)
+| reporter(15*N,SignalOutputBar,OutputBar)
+| reporter(15*N,SignalOutput,Output)
+)
