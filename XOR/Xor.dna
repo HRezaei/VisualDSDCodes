@@ -1,4 +1,4 @@
-(* Qian and Winfree 4 bit square root circuit *)
+(* Based on: Qian and Winfree 4 bit square root circuit *)
 (* Simulate in Finite mode with Stochastic simulator withouts leaks and unproductive reactions *)
 
 (* Simulate for 10 hours and collect 10000 data points*)
